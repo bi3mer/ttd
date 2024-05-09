@@ -3,10 +3,10 @@
 A terminal application to get definitions and synonyms distraction free. 
 
 
-
 ## Install
+
 ```bash
-source ttd/bin/activate
+pip install -r requirements.txt
 ```
 
 ## Running
