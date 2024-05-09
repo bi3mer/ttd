@@ -59,9 +59,9 @@ class TTD(App):
                     if l.name() != word:
                         synonyms.append(f"- {l.name()}")
 
-                        lemma_antonyms = l.antonyms()
-                        if len(lemma_antonyms) > 0:
-                            antonyms.append(f"- {lemma_antonyms[0].name()}")
+                    lemma_antonyms = l.antonyms()
+                    if len(lemma_antonyms) > 0:
+                        antonyms.append(f"- {lemma_antonyms[0].name()}")
 
                 if len(synonyms) > 0:
                     markdown += "\n**Synonyms:**\n"
