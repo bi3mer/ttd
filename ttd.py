@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-try:
-    import httpx
-except ImportError:
-    raise ImportError("Please install httpx with 'pip install httpx' ")
 
+from nltk.corpus import wordnet
+
+wordnet.ensure_loaded()
 
 from textual import work
 from textual.app import App, ComposeResult
@@ -29,48 +28,53 @@ class TTD(App):
         # Give the input focus, so we can start typing straight away
         self.query_one(Input).focus()
 
-    async def on_input_changed(self, message: Input.Changed) -> None:
-        """A coroutine to handle a text changed message."""
+    def on_input_changed(self, message: Input.Changed) -> None:
         if message.value:
             self.lookup_word(message.value)
         else:
-            # Clear the results
-            self.query_one("#results", Markdown).update("")
+            self.query_one("#results", Markdown).update("...")
 
-    @work(exclusive=True)
-    async def lookup_word(self, word: str) -> None:
-        """Looks up a word."""
-        url = f"https://api.dictionaryapi.dev/api/v2/entries/en/{word}"
+    def lookup_word(self, word: str) -> None:
+        synsets = wordnet.synsets(word)
+        if len(synsets) <= 0:
+            self.query_one("#results", Markdown).update(f'"{word}" not found :/')
+            return
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url)
-            try:
-                results = response.json()
-            except Exception:
-                self.query_one("#results", Markdown).update(response.text)
+        markdown = ""
+        for s in synsets:
+            lemmas = s.lemmas()
+            markdown += f"**{lemmas[0].name()}** ({s.pos()}): {s.definition()}\n\n"
 
-        if word == self.query_one(Input).value:
-            markdown = self.make_word_markdown(results)
-            self.query_one("#results", Markdown).update(markdown)
+            examples = s.examples()
+            if len(examples) > 0:
+                markdown += "**Examples:**\n"
+                for ex in s.examples():
+                    markdown += f"- {ex}\n"
 
-    def make_word_markdown(self, results: object) -> str:
-        """Convert the results in to markdown."""
-        lines = []
-        if isinstance(results, dict):
-            lines.append(f"# {results['title']}")
-            lines.append(results["message"])
-        elif isinstance(results, list):
-            for result in results:
-                lines.append(f"# {result['word']}")
-                lines.append("")
-                for meaning in result.get("meanings", []):
-                    lines.append(f"_{meaning['partOfSpeech']}_")
-                    lines.append("")
-                    for definition in meaning.get("definitions", []):
-                        lines.append(f" - {definition['definition']}")
-                    lines.append("---")
+            if len(lemmas) > 1:
+                synonyms = []
+                antonyms = []
 
-        return "\n".join(lines)
+                for l in lemmas:
+                    if l.name() != word:
+                        synonyms.append(f"- {l.name()}")
+
+                        lemma_antonyms = l.antonyms()
+                        if len(lemma_antonyms) > 0:
+                            antonyms.append(f"- {lemma_antonyms[0].name()}")
+
+                if len(synonyms) > 0:
+                    markdown += "\n**Synonyms:**\n"
+                    markdown += "\n".join(synonyms)
+
+                if len(antonyms) > 0:
+                    markdown += "\n\n**Antonyms:**\n"
+                    markdown += "\n".join(antonyms)
+
+            markdown += "\n---\n"
+
+        markdown += "\n"
+        self.query_one("#results", Markdown).update(markdown)
 
 
 if __name__ == "__main__":
